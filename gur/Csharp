@@ -1,0 +1,85 @@
+using System;
+using Windows.ApplicationModel.Background;
+using Windows.UI.Notifications;
+using Windows.Data.Xml.Dom;
+
+namespace CopilotIntegrationAPI
+{
+    // מחלקת משימת הרקע המדמה פעולת אינטגרציה מערכתית
+    public sealed class CopilotBackgroundTask : IBackgroundTask
+    {
+        public async void Run(IBackgroundTaskInstance taskInstance)
+        {
+            // קבלת deferral כדי להבטיח עבודה אסינכרונית חלקה
+            var deferral = taskInstance.GetDeferral();
+            try
+            {
+                // כאן ניתן לשלב קריאות API נוספות לקבלת מידע קונטקסטואלי מהמערכת,
+                // אינטגרציה עם ממשקי UI, או פעולות אוטומציה אחרות.
+                ShowNotification("Copilot activated", "System automation running successfully!");
+            }
+            catch (Exception ex)
+            {
+                // ניתן לטפל בשגיאות או לרשום לוג
+            }
+            finally
+            {
+                deferral.Complete();
+            }
+        }
+
+        // פונקציה המייצרת התראה (Toast Notification)
+        private void ShowNotification(string title, string message)
+        {
+            // יצירת תוכן ההתראה בפורמט XML
+            XmlDocument toastXml = ToastNotificationManager.GetTemplateContent(ToastTemplateType.ToastText02);
+            var toastTextElements = toastXml.GetElementsByTagName("text");
+            toastTextElements[0].AppendChild(toastXml.CreateTextNode(title));
+            toastTextElements[1].AppendChild(toastXml.CreateTextNode(message));
+
+            // יצירת אובייקט ההתראה והצגתה
+            ToastNotification toast = new ToastNotification(toastXml);
+            ToastNotificationManager.CreateToastNotifier("CopilotIntegrationAPI").Show(toast);
+        }
+    }
+
+    // מחלקה עזר לרישום משימות רקע
+    public static class BackgroundTaskRegistrationHelper
+    {
+        public static async void RegisterCopilotBackgroundTask()
+        {
+            string taskName = "CopilotBackgroundTask";
+
+            // בדיקה האם משימת הרקע כבר רשומה
+            foreach (var task in BackgroundTaskRegistration.AllTasks)
+            {
+                if (task.Value.Name == taskName)
+                {
+                    // המשימה כבר רשומה – אין צורך ברישום נוסף
+                    return;
+                }
+            }
+
+            // בקשה לקבלת הרשאות למשימות רקע
+            var access = await BackgroundExecutionManager.RequestAccessAsync();
+            if (access == BackgroundAccessStatus.Denied || access == BackgroundAccessStatus.Unspecified)
+            {
+                // לא ניתנה הרשאה – יש לטפל במצב בהתאם
+                return;
+            }
+
+            // יצירת בנאי למשימת הרקע
+            BackgroundTaskBuilder builder = new BackgroundTaskBuilder
+            {
+                Name = taskName,
+                TaskEntryPoint = "CopilotIntegrationAPI.CopilotBackgroundTask"
+            };
+
+            // קביעת טריגר זמן – במקרה זה כל 15 דקות (ניתן לבחור טריגר אחר לפי הצורך)
+            builder.SetTrigger(new TimeTrigger(15, false));
+
+            // רישום המשימה
+            BackgroundTaskRegistration registration = builder.Register();
+        }
+    }
+}
